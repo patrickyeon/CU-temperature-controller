@@ -63,12 +63,15 @@ PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 600, 24, 3750, REVERSE); /
 double lastPeltierUpdate = 0;
 boolean overheating;
 int settingpid = 0;
+boolean debugmode = false;
 //=================
 void setup(){
   Serial.begin(115200); // setup serial data baud rate
   chuckTemps = Thermistor(analogRead(ChuckThermPIN), chuckPad); // initialize temperature readings
   hSyncTemps = Thermistor(analogRead(HSyncThermPIN), hSyncPad); // "
   overheating = abs(hSyncTemps - chuckTemps) > 50; // check if peltier cooler is overheating
+  if(bRight.isPressed())
+    debugmode = true;
   lcd.begin(24, 2); // initialize LCD
   //configure menus
   menu.addMenuItem(menuItem1);
@@ -112,12 +115,15 @@ void loop(){
       }
       // move menus right or loop back to the beginning of the menus
       if(menu.getCurrentIndex() == 2)
-        menu.select(4);
+        if(debugmode)
+          menu.select(4);
+        else
+          menu.select(0);
 	  else if(menu.getCurrentIndex() == 4)
-            menu.select(0);
-      else
-        menu.up();
-      lastDebounceTime = millis();
+      menu.select(0);
+    else
+      menu.up();
+    lastDebounceTime = millis();
   }
   // left button press
   if (bLeft.isPressed() && ((millis() - lastDebounceTime) > inputDelay)) {
@@ -129,7 +135,10 @@ void loop(){
       }
       // move menus left or loop back to the end of the menus
       if(menu.getCurrentIndex() == 0)
-        menu.select(4);
+        if(debugmode)
+          menu.select(4);
+        else
+          menu.select(2);
       else if(menu.getCurrentIndex() == 4){
         if(--settingpid < 0)
           settingpid = 2;
@@ -268,7 +277,7 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
     }
     if (menu.getCurrentIndex() == 2){ // peltier cooler duty screen
       lcd.setCursor(9, 1); 
-      lcd.print(peltierDuty * (255.0/100.0));
+      lcd.print(peltierDuty * (100.0/255.0));
       lcd.print((char)37);
       lcd.print("  "); 
     }
