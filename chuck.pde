@@ -114,7 +114,7 @@ void loop(){
       if(menu.getCurrentIndex() == 2)
         menu.select(4);
 	  else if(menu.getCurrentIndex() == 4)
-		menu.select(0);
+            menu.select(0);
       else
         menu.up();
       lastDebounceTime = millis();
@@ -130,10 +130,10 @@ void loop(){
       // move menus left or loop back to the end of the menus
       if(menu.getCurrentIndex() == 0)
         menu.select(4);
-	  else if(menu.getCurrentIndex() == 4){
-			if(--settingpid < 0)
-				settingpid = 2;
-		}
+      else if(menu.getCurrentIndex() == 4){
+        if(--settingpid < 0)
+          settingpid = 2;
+        }
       else
         menu.down();
       lastDebounceTime = millis();
@@ -150,19 +150,20 @@ void loop(){
       if((millis() - heldTime) > holdDelay)
         inputDelay = holdSpeed;
       // depending on what the current menu is, do different things      
+      double pidvals[3] = {peltierPID.GetKp(),
+                           peltierPID.GetKi(),
+                           peltierPID.GetKd()};
       switch(menu.getCurrentIndex()){
         case 0:// increase the set temp
           if (setTemp < 50)
             setTemp = setTemp + 1;
             updateVariables();
           break; 
-				case 4:
-					double pidvals[3] = {peltierPID.GetKp(),
-															 peltierPID.GetKi(),
-															 peltierPID.GetKd()}
-					pidvals[settingpid] += 0.25;
-					peltierPID.SetTunings(pidavls[0], pidvals[1], pidvals[2]);
-					break;
+        case 4:
+          
+          pidvals[settingpid] += 0.25;
+          peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
+          break;
         case 1:// do nothing
           break;
         case 2:// do nothing
@@ -181,19 +182,19 @@ void loop(){
       if((millis() - heldTime) > holdDelay)
         inputDelay = holdSpeed;
       // depending on what the current menu is, do different things           
+      double pidvals[3] = {peltierPID.GetKp(),
+                           peltierPID.GetKi(),
+                           peltierPID.GetKd()};
       switch(menu.getCurrentIndex()){
         case 0:// decrease the set temp
           if (setTemp > 0)
             setTemp = setTemp - 1;
             updateVariables();
           break; 
-				case 4:
-					double pidvals[3] = {peltierPID.GetKp(),
-															 peltierPID.GetKi(),
-															 peltierPID.GetKd()}
-					pidvals[settingpid] -= 0.25;
-					peltierPID.SetTunings(pidavls[0], pidvals[1], pidvals[2]);
-					break;
+        case 4:
+          pidvals[settingpid] -= 0.25;
+          peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
+          break;
         case 1:// do nothing
           break;
         case 2:// do nothing
@@ -282,20 +283,21 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
       lcd.print((char)223);
       lcd.print("C  ");      
     }     
-		if(menu.getCurrentIndex() == 4){
-			lcd.setCursor(3, 1);
-			int i;
-			char pidchars[3] = {'p', 'i', 'd'};
-			double pidvals[3] = {peltierPID.getKp(),
-													 peltierPID.getKi(),
-													 peltierPID.getKd()}
-			for(i = 0; i < 3; i++){
-				lcd.print(settingpid == i ? '*' : ' ');
-				lcd.print('K');
-				lcd.print(pidchars[i]);
-				lcd.print(": ");
-				lcd.print(pidvals[i]);
-			}
+    if(menu.getCurrentIndex() == 4){
+      lcd.setCursor(3, 1);
+      int i;
+      char pidchars[3] = {'p', 'i', 'd'};
+      double pidvals[3] = {peltierPID.GetKp(),
+                           peltierPID.GetKi(),
+                           peltierPID.GetKd()};
+      for(i = 0; i < 3; i++){
+        lcd.print(settingpid == i ? '*' : ' ');
+        lcd.print('K');
+        lcd.print(pidchars[i]);
+        lcd.print(": ");
+        lcd.print(pidvals[i]);
+      }
+    }
     
     lastUpdate = millis();
 }
@@ -317,9 +319,9 @@ void menuChanged(ItemChangeEvent event){
     //         012345678901234567890123
     lcd.print("  Peltier Cooler Duty   ");
     updateVariables();
-	}else if(event == &menusetpid){
-		lcd.clear();
-		updateVariables();
+   }else if(event == &menusetpid){
+      lcd.clear();
+      updateVariables();
   }else if ( event == &overheat ){
     lcd.clear();
     //         012345678901234567890123
