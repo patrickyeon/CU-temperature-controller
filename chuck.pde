@@ -57,7 +57,7 @@ double avghSyncTemp;                         // "
 int numTemps = 1;                            // counter for number of temperature values added up so far, used to find the average
 double setTemp = 25;                         // the desired chuck temperature set by the user
 //PELTIER COOLER SETUP
-double peltierDuty = 0; 					 // sets duty cycle of peltier cooler (0-100)
+double peltierDuty = 0;            // sets duty cycle of peltier cooler (0-100)
 PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 600, 24, 3750, REVERSE); //specify the links and initial tuning parameters
 //Default PID Parameters: 2.0, 5.0, 1.0
 double lastPeltierUpdate = 0;
@@ -119,7 +119,7 @@ void loop(){
           menu.select(4);
         else
           menu.select(0);
-	  else if(menu.getCurrentIndex() == 4)
+    else if(menu.getCurrentIndex() == 4)
       menu.select(0);
     else
       menu.up();
@@ -293,7 +293,7 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
       lcd.print("C  ");      
     }     
     if(menu.getCurrentIndex() == 4){
-      lcd.setCursor(3, 1);
+      lcd.setCursor(0, 1);
       int i;
       char pidchars[3] = {'p', 'i', 'd'};
       double pidvals[3] = {peltierPID.GetKp(),
@@ -301,9 +301,7 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
                            peltierPID.GetKd()};
       for(i = 0; i < 3; i++){
         lcd.print(settingpid == i ? '*' : ' ');
-        lcd.print('K');
         lcd.print(pidchars[i]);
-        lcd.print(": ");
         lcd.print(pidvals[i]);
       }
     }
