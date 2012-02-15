@@ -29,6 +29,7 @@ Menu menu = Menu(menuUsed,menuChanged);
   MenuItem menuItem2 = MenuItem();
   MenuItem menuItem3 = MenuItem();
   MenuItem overheat = MenuItem();
+  MenuItem menusetpid = MenuItem();
 //BUTTON LIBRARY
 Button bRight = Button(9,PULLUP);
 Button bLeft = Button(12,PULLUP);
@@ -57,10 +58,11 @@ int numTemps = 1;                            // counter for number of temperatur
 double setTemp = 25;                         // the desired chuck temperature set by the user
 //PELTIER COOLER SETUP
 double peltierDuty = 0; 					 // sets duty cycle of peltier cooler (0-100)
-PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp,1.0,1.0,1.0, REVERSE); //specify the links and initial tuning parameters
+PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp,0.0,0.0,0.0, REVERSE); //specify the links and initial tuning parameters
 //Default PID Parameters: 2.0, 5.0, 1.0
 double lastPeltierUpdate = 0;
 boolean overheating;
+int settingpid = 0;
 //=================
 void setup(){
   Serial.begin(115200); // setup serial data baud rate
@@ -73,11 +75,12 @@ void setup(){
   menu.addMenuItem(menuItem2);
   menu.addMenuItem(menuItem3);
   menu.addMenuItem(overheat);
+  menu.addMenuItem(menusetpid);
   menu.select(0); // select the menu that is shown initially
   lastDebounceTime = 0; // initialize debounce time variable
   // initialize PID library
   peltierPID.SetMode(AUTOMATIC); // PID control is automatic
-  peltierPID.SetOutputLimits(0,100); // set PID output limited from 0-100
+  // peltierPID.SetOutputLimits(0,100); // set PID output limited from 0-100
   peltierPID.SetSampleTime(200); // refresh the PID controller a maximum of once every 200mS, but normally will be only calling it every 300mS (refreshRate), so this setting doesn't matter much
   //Serial.println("#S|CPTEST|[]#");// for debugging using computer
 }
@@ -109,7 +112,9 @@ void loop(){
       }
       // move menus right or loop back to the beginning of the menus
       if(menu.getCurrentIndex() == 2)
-        menu.select(0);
+        menu.select(4);
+	  else if(menu.getCurrentIndex() == 4)
+		menu.select(0);
       else
         menu.up();
       lastDebounceTime = millis();
@@ -124,7 +129,11 @@ void loop(){
       }
       // move menus left or loop back to the end of the menus
       if(menu.getCurrentIndex() == 0)
-        menu.select(2);
+        menu.select(4);
+	  else if(menu.getCurrentIndex() == 4){
+			if(--settingpid < 0)
+				settingpid = 2;
+		}
       else
         menu.down();
       lastDebounceTime = millis();
@@ -147,6 +156,13 @@ void loop(){
             setTemp = setTemp + 1;
             updateVariables();
           break; 
+				case 4:
+					double pidvals[3] = {peltierPID.GetKp(),
+															 peltierPID.GetKi(),
+															 peltierPID.GetKd()}
+					pidvals[settingpid] += 0.25;
+					peltierPID.SetTunings(pidavls[0], pidvals[1], pidvals[2]);
+					break;
         case 1:// do nothing
           break;
         case 2:// do nothing
@@ -171,6 +187,13 @@ void loop(){
             setTemp = setTemp - 1;
             updateVariables();
           break; 
+				case 4:
+					double pidvals[3] = {peltierPID.GetKp(),
+															 peltierPID.GetKi(),
+															 peltierPID.GetKd()}
+					pidvals[settingpid] -= 0.25;
+					peltierPID.SetTunings(pidavls[0], pidvals[1], pidvals[2]);
+					break;
         case 1:// do nothing
           break;
         case 2:// do nothing
@@ -196,7 +219,7 @@ void loop(){
     if(overheating)
       coolDownLoop();       
     else
-      analogWrite(Peltier, peltierDuty*255.0/100); 
+      analogWrite(Peltier, peltierDuty); 
 
   }
   
@@ -259,6 +282,20 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
       lcd.print((char)223);
       lcd.print("C  ");      
     }     
+		if(menu.getCurrentIndex() == 4){
+			lcd.setCursor(3, 1);
+			int i;
+			char pidchars[3] = {'p', 'i', 'd'};
+			double pidvals[3] = {peltierPID.getKp(),
+													 peltierPID.getKi(),
+													 peltierPID.getKd()}
+			for(i = 0; i < 3; i++){
+				lcd.print(settingpid == i ? '*' : ' ');
+				lcd.print('K');
+				lcd.print(pidchars[i]);
+				lcd.print(": ");
+				lcd.print(pidvals[i]);
+			}
     
     lastUpdate = millis();
 }
@@ -280,6 +317,9 @@ void menuChanged(ItemChangeEvent event){
     //         012345678901234567890123
     lcd.print("  Peltier Cooler Duty   ");
     updateVariables();
+	}else if(event == &menusetpid){
+		lcd.clear();
+		updateVariables();
   }else if ( event == &overheat ){
     lcd.clear();
     //         012345678901234567890123
