@@ -17,8 +17,8 @@ peltier cooler.
 #include <Button.h>
 #include <PID_v1.h>
 //CONSTANTS
-#define ChuckThermPIN 0                     // Analog Pin 0
-#define HSyncThermPIN 1                     // Analog Pin 1
+#define ChuckThermPIN 4                     // Analog Pin 0
+#define HSyncThermPIN 5                     // Analog Pin 1
 #define Peltier 10                           // Digital Pin 10 ****THIS PIN CONTROLS THE PELTIER COOLER USING PWM!!!
 //LCD
 LiquidCrystal lcd(7,6,5,4,3,2);     // lcd initialization [LiquidCrystal(rs, enable, d4, d5, d6, d7)]
@@ -57,7 +57,7 @@ int numTemps = 1;                            // counter for number of temperatur
 double setTemp = 25;                         // the desired chuck temperature set by the user
 //PELTIER COOLER SETUP
 double peltierDuty = 0; 					 // sets duty cycle of peltier cooler (0-100)
-PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp,2.0,5.0,1.0, REVERSE); //specify the links and initial tuning parameters
+PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp,1.0,1.0,1.0, REVERSE); //specify the links and initial tuning parameters
 //Default PID Parameters: 2.0, 5.0, 1.0
 double lastPeltierUpdate = 0;
 boolean overheating;
@@ -193,10 +193,11 @@ void loop(){
     //logData(setTemp*10,avgChuckTemp*10,avghSyncTemp*10); // for logging data using computer (debugging)
     
     overheating = abs(avgChuckTemp - avghSyncTemp) >= 50; // check if the Peltier cooler is overheating
-    if(!overheating)
-      analogWrite(Peltier, peltierDuty*255.0/100); 
-    else
+    if(overheating)
       coolDownLoop();       
+    else
+      analogWrite(Peltier, peltierDuty*255.0/100); 
+
   }
   
 }
