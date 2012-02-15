@@ -58,7 +58,7 @@ int numTemps = 1;                            // counter for number of temperatur
 double setTemp = 25;                         // the desired chuck temperature set by the user
 //PELTIER COOLER SETUP
 double peltierDuty = 0; 					 // sets duty cycle of peltier cooler (0-100)
-PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp,0.0,0.0,0.0, REVERSE); //specify the links and initial tuning parameters
+PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 600, 24, 3750, REVERSE); //specify the links and initial tuning parameters
 //Default PID Parameters: 2.0, 5.0, 1.0
 double lastPeltierUpdate = 0;
 boolean overheating;
@@ -268,7 +268,7 @@ void updateVariables(){ // updates all temperature values + peltier duty cycle a
     }
     if (menu.getCurrentIndex() == 2){ // peltier cooler duty screen
       lcd.setCursor(9, 1); 
-      lcd.print(peltierDuty);
+      lcd.print(peltierDuty * (255.0/100.0));
       lcd.print((char)37);
       lcd.print("  "); 
     }
