@@ -22,16 +22,16 @@ peltier cooler.
 #define HSinkThermPIN 5
 // Output control line for the peltier device (must be a digital PWM pin)
 #define Peltier 10
+#define MAXTEMP 70
 
 //LCD [LiquidCrystal(rs, enable, d4, d5, d6, d7)]
 LiquidCrystal lcd(7,6,5,4,3,2);
 
 //MENUITEM LIBRARY
-int numItems = 4;
 Menu menu = Menu(menuUsed,menuChanged); 
-  MenuItem menuItem1 = MenuItem();
-  MenuItem menuItem2 = MenuItem();
-  MenuItem menuItem3 = MenuItem();
+  MenuItem menuSetTemp = MenuItem();
+  MenuItem menuHeatSink = MenuItem();
+  MenuItem menuPeltierDuty = MenuItem();
   MenuItem overheat = MenuItem();
   MenuItem menusetpid = MenuItem();
 
@@ -91,20 +91,20 @@ void setup(){
   chuckTemps = Thermistor(analogRead(ChuckThermPIN), chuckPad);
   hSinkTemps = Thermistor(analogRead(HSinkThermPIN), hSinkPad);
   // 50 C is too hot!
-  overheating = abs(hSinkTemps - chuckTemps) > 50;
-
-  // Allow debug mode if the right button is held down during boot up
-  if(bRight.isPressed())
-    debugmode = true;
+  overheating = abs(hSinkTemps - chuckTemps) > MAXTEMP;
 
   lcd.begin(24, 2); // initialize LCD
 
   //configure menus
-  menu.addMenuItem(menuItem1);
-  menu.addMenuItem(menuItem2);
-  menu.addMenuItem(menuItem3);
+  menu.addMenuItem(menuSetTemp);
+  menu.addMenuItem(menuHeatSink);
+  menu.addMenuItem(menuPeltierDuty);
   menu.addMenuItem(overheat);
-  menu.addMenuItem(menusetpid);
+  // Allow debug mode if the right button is held down during boot up
+  if(bRight.isPressed()){
+    debugmode = true;
+    menu.addMenuItem(menusetpid);
+  }
   menu.select(0); // select the menu that is shown initially
 
   lastDebounceTime = 0;
@@ -210,7 +210,7 @@ void loop(){
     // depending on what the current menu is, do different things      
     switch(menu.getCurrentIndex()){
       case 0:// increase the set temp
-        if (setTemp < 50)
+        if (setTemp < MAXTEMP)
           setTemp = setTemp + 1;
           updateVariables();
         break; 
@@ -269,7 +269,8 @@ void loop(){
     //logData(setTemp * 10, avgChuckTemp * 10, avghSinkTemp * 10);
     // for logging data using computer (debugging)
     
-    overheating = abs(avgChuckTemp - avghSinkTemp) >= 50; // check for overheat
+    // check for overheat
+    overheating = abs(avgChuckTemp - avghSinkTemp) >= MAXTEMP;
     if(overheating)
       coolDownLoop();       
     else
@@ -281,8 +282,8 @@ void coolDownLoop(){
   // puts program into cooldown loop to avoid peltier cooler overheating
   analogWrite(Peltier, 0);// turn peltier cooler off
   menu.select(3); // select overheating screen
-  while(abs(avgChuckTemp - avghSinkTemp) > 40){
-    // wait for temperature difference to fall below 40degC
+  while(abs(avgChuckTemp - avghSinkTemp) > (MAXTEMP - 10)){
+    // wait for temperature difference to fall by 10deg C
     chuckTemps = chuckTemps + Thermistor(analogRead(ChuckThermPIN), chuckPad);
     hSinkTemps = hSinkTemps + Thermistor(analogRead(HSinkThermPIN), hSinkPad);
     numTemps = numTemps + 1;  
@@ -362,17 +363,17 @@ void updateVariables(){
 // when user changes to a new menu, this function is called
 void menuChanged(ItemChangeEvent event){
   // change the screen and update the new values to the new screen
-  if( event == &menuItem1 ){    
+  if( event == &menuSetTemp ){    
     lcd.clear();
     //         012345678901234567890123
     lcd.print("  Cur Temp    Set Temp  ");
     updateVariables();
-  }else if( event == &menuItem2){
+  }else if( event == &menuHeatSink){
     lcd.clear();
     //         012345678901234567890123
     lcd.print("     Heat Sink Temp     ");
     updateVariables();
-  }else if( event == &menuItem3 ){
+  }else if( event == &menuPeltierDuty ){
     lcd.clear();
     //         012345678901234567890123
     lcd.print("  Peltier Cooler Duty   ");
@@ -389,10 +390,10 @@ void menuChanged(ItemChangeEvent event){
 }
 
 void menuUsed(ItemUseEvent event){
-  if( event == &menuItem1 ){
-  }else if( event == &menuItem2 ){
-  }else if( event == &menuItem3 ){
-  //Serial.println("\tmenuItem3 used"); //user feedback
+  if( event == &menuSetTemp ){
+  }else if( event == &menuHeatSink ){
+  }else if( event == &menuPeltierDuty ){
+  //Serial.println("\tmenuPeltierDuty used"); //user feedback
   }
 }
 
