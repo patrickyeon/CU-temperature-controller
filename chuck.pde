@@ -2,9 +2,9 @@
 Chuck Temp Controller
 Martin Friedl, Patrick Yeon
 
-Used to control the temperature of a vacuum chuck using a PID 
-controlled Peltier cooler controlled by a Mosfet. Includes 
-temperature inputs for the chuck side and heatsink side of the 
+Used to control the temperature of a vacuum chuck using a PID
+controlled Peltier cooler controlled by a Mosfet. Includes
+temperature inputs for the chuck side and heatsink side of the
 peltier cooler.
 */
 
@@ -28,7 +28,7 @@ peltier cooler.
 LiquidCrystal lcd(7,6,5,4,3,2);
 
 //MENUITEM LIBRARY
-Menu menu = Menu(menuUsed,menuChanged); 
+Menu menu = Menu(menuUsed,menuChanged);
   MenuItem menuSetTemp = MenuItem();
   MenuItem menuHeatSink = MenuItem();
   MenuItem menuPeltierDuty = MenuItem();
@@ -53,7 +53,7 @@ long holdDelay = 2000;
 long holdSpeed = 100;
 // delay that controls how far appart inputs can be, starts at debounceDelay,
 // but can change to holdSpeed when a button is held down to inscrease scroll
-// speed (in mS) 
+// speed (in mS)
 long inputDelay = debounceDelay;
 long lastUpdate = 0; // saves the time of the last update
 boolean held = false; // if any button is held, this will be true
@@ -67,7 +67,7 @@ float thermr = 10000; // thermistor nominal resistance
 int B = 3950; // thermistor "beta" value
 float chuckTemps = 0; // temp addtion variable, used to later find average
 float hSinkTemps = 0; // "
-double avgChuckTemp; // averaged temperature value, updated every refresh cycle 
+double avgChuckTemp; // averaged temperature value, updated every refresh cycle
 double avghSinkTemp; // "
 int numTemps = 1; // counter for number of temperature values added up so far,
                   // used to find the average
@@ -113,7 +113,7 @@ void setup(){
   peltierPID.SetMode(AUTOMATIC); // PID control is automatic
   peltierPID.SetSampleTime(200);
   // refresh the PID controller a maximum of once every 200mS
-  // (normally will be only calling it every 300mS (refreshRate), so this 
+  // (normally will be only calling it every 300mS (refreshRate), so this
   // setting doesn't matter much)
 
   //Serial.println("#S|CPTEST|[]#");// for debugging using computer
@@ -121,19 +121,19 @@ void setup(){
 
 float Thermistor(int RawADC, float pad) {
   // returns temperature from a thermistor, pad is the associated resistance
-  long Resistance;  
+  long Resistance;
   float Temp; // dual-purpose variable to save space.
 
   Resistance =((1024 * pad / RawADC) - pad); // resistance of thermistor
   Temp = log(Resistance/thermr); // saving the Log(resistance)
                                  // so not to calculate  it 4 times later
   Temp = 1 /((1/(298.15)) + (Temp/B));
-  Temp = Temp - 273.15; // convert Kelvin to Celsius                      
+  Temp = Temp - 273.15; // convert Kelvin to Celsius
 
   return Temp;
 }
 
-void loop(){ 
+void loop(){
   // main execution loop
 
   // once no buttons are being pushed, reset the delays
@@ -143,7 +143,7 @@ void loop(){
     held = false;
   }
 
-  // right button press  
+  // right button press
   if(bRight.isPressed() && ((millis() - lastDebounceTime) > inputDelay)){
     // whatever the reading is at, it's been there for longer
     // than the debounce delay, so take it as the actual current state:
@@ -207,13 +207,13 @@ void loop(){
     double pidvals[3] = {peltierPID.GetKp(),
                          peltierPID.GetKi(),
                          peltierPID.GetKd()};
-    // depending on what the current menu is, do different things      
+    // depending on what the current menu is, do different things
     switch(menu.getCurrentIndex()){
       case 0:// increase the set temp
         if (setTemp < MAXTEMP)
           setTemp = setTemp + 1;
           updateVariables();
-        break; 
+        break;
       case 4:
         pidvals[settingpid] += 0.25;
         peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
@@ -238,13 +238,13 @@ void loop(){
     double pidvals[3] = {peltierPID.GetKp(),
                          peltierPID.GetKi(),
                          peltierPID.GetKd()};
-    // depending on what the current menu is, do different things           
+    // depending on what the current menu is, do different things
     switch(menu.getCurrentIndex()){
       case 0:// decrease the set temp
         if (setTemp > 0)
           setTemp = setTemp - 1;
           updateVariables();
-        break; 
+        break;
       case 4:
         pidvals[settingpid] -= 0.25;
         peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
@@ -363,7 +363,7 @@ void updateVariables(){
 // when user changes to a new menu, this function is called
 void menuChanged(ItemChangeEvent event){
   // change the screen and update the new values to the new screen
-  if( event == &menuSetTemp ){    
+  if( event == &menuSetTemp ){
     lcd.clear();
     //         012345678901234567890123
     lcd.print("  Cur Temp    Set Temp  ");
