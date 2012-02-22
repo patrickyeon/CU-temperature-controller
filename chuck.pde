@@ -32,8 +32,9 @@ Menu menu = Menu(menuUsed,menuChanged);
   MenuItem menuSetTemp = MenuItem();
   MenuItem menuHeatSink = MenuItem();
   MenuItem menuPeltierDuty = MenuItem();
-  MenuItem overheat = MenuItem();
+  // debug menus
   MenuItem menusetpid = MenuItem();
+int maxMenuItem = 2;
 
 //BUTTON LIBRARY
 Button bRight = Button(9,PULLUP);
@@ -99,11 +100,11 @@ void setup(){
   menu.addMenuItem(menuSetTemp);
   menu.addMenuItem(menuHeatSink);
   menu.addMenuItem(menuPeltierDuty);
-  menu.addMenuItem(overheat);
   // Allow debug mode if the right button is held down during boot up
   if(bRight.isPressed()){
     debugmode = true;
     menu.addMenuItem(menusetpid);
+    maxMenuItem += 1;
   }
   menu.select(0); // select the menu that is shown initially
 
@@ -138,162 +139,143 @@ void loop(){
 
   // once no buttons are being pushed, reset the delays
   if(!bRight.isPressed() && !bLeft.isPressed() &&
-      !bUp.isPressed() && !bDown.isPressed() && held){
-    inputDelay = debounceDelay;
-    held = false;
+      !bUp.isPressed() && !bDown.isPressed()){
+    if(held){
+      inputDelay = debounceDelay;
+      held = false;
+    }
   }
-
-  // right button press
-  if(bRight.isPressed() && ((millis() - lastDebounceTime) > inputDelay)){
+  else if((millis() - lastDebounceTime) > inputDelay){
     // whatever the reading is at, it's been there for longer
     // than the debounce delay, so take it as the actual current state:
     if(!held){
       held = true;
       heldTime = millis();
     }
-    // move menus right or loop back to the beginning of the menus
-    if(menu.getCurrentIndex() == 2){
-      if(debugmode)
-        menu.select(4);
-      else
+
+    // right button press
+    if(bRight.isPressed()){
+      // move menus right or loop back to the beginning of the menus
+      if(menu.getCurrentIndex() == maxMenuItem)
         menu.select(0);
-    }
-    else if(menu.getCurrentIndex() == 4)
-      menu.select(0);
-    else
-      menu.up();
-    lastDebounceTime = millis();
-  }
-
-  // left button press
-  if (bLeft.isPressed() && ((millis() - lastDebounceTime) > inputDelay)) {
-    // whatever the reading is at, it's been there for longer
-    // than the debounce delay, so take it as the actual current state:
-    if(!held){
-      held = true;
-      heldTime = millis();
-    }
-    // move menus left or loop back to the end of the menus
-    if(menu.getCurrentIndex() == 0){
-      if(debugmode)
-        menu.select(4);
       else
-        menu.select(2);
+        menu.up();
+      // wraparound
     }
-    else if(menu.getCurrentIndex() == 4){
-      settingpid--;
-      if(settingpid < 0 || settingpid > 2){
-        // extra check just in case settingpid becomes unsigned
-        settingpid = 2;
+  
+    // left button press
+    else if(bLeft.isPressed()){
+      // special control for PID loop tuning
+      if(debugmode && menu.getCurrentIndex() == 3){
+        settingpid--;
+        if(settingpid < 0 || settingpid > 2){
+          // extra check just in case settingpid becomes unsigned
+          settingpid = 2;
+        }
+      }
+      // move menus left or loop back to the end of the menus
+      else{
+        if(menu.getCurrentIndex() == 0)
+          menu.select(maxMenuItem);
+        else
+          menu.down();
       }
     }
-    else
-      menu.down();
-    lastDebounceTime = millis();
-  }
-
-  // up button press
-  if (bUp.isPressed() && ((millis() - lastDebounceTime) > inputDelay)) {
-    // whatever the reading is at, it's been there for longer
-    // than the debounce delay, so take it as the actual current state:
-    if(!held){
-      held = true;
-      heldTime = millis();
-    }
-    // if the button has been held for long enough, increase the scroll speed
-    if((millis() - heldTime) > holdDelay)
-      inputDelay = holdSpeed;
-
-    double pidvals[3] = {peltierPID.GetKp(),
-                         peltierPID.GetKi(),
-                         peltierPID.GetKd()};
-    // depending on what the current menu is, do different things
-    switch(menu.getCurrentIndex()){
-      case 0:// increase the set temp
-        if (setTemp < MAXTEMP)
-          setTemp = setTemp + 1;
-          updateVariables();
-        break;
-      case 4:
-        pidvals[settingpid] += 0.25;
-        peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
-        break;
-      default: // do nothing
-        break;
-    }
-    lastDebounceTime = millis();
-  }
-
-  if (bDown.isPressed() && ((millis() - lastDebounceTime) > inputDelay)) {
-    // whatever the reading is at, it's been there for longer
-    // than the debounce delay, so take it as the actual current state:
-    if(!held){
-      held = true;
-      heldTime = millis();
-    }
-    // if the button has been held long enough, increase the scroll speed
-    if((millis() - heldTime) > holdDelay)
-      inputDelay = holdSpeed;
-
-    double pidvals[3] = {peltierPID.GetKp(),
-                         peltierPID.GetKi(),
-                         peltierPID.GetKd()};
-    // depending on what the current menu is, do different things
-    switch(menu.getCurrentIndex()){
-      case 0:// decrease the set temp
-        if (setTemp > 0)
-          setTemp = setTemp - 1;
-          updateVariables();
-        break;
-      case 4:
-        pidvals[settingpid] -= 0.25;
-        peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
-        break;
-      default:// do nothing
-        break;
-    }
-    lastDebounceTime = millis();
-  }
   
+    // up button press
+    else if(bUp.isPressed()){
+      // if the button has been held for long enough, increase the scroll speed
+      if((millis() - heldTime) > holdDelay)
+        inputDelay = holdSpeed;
+  
+      double pidvals[3] = {peltierPID.GetKp(),
+                           peltierPID.GetKi(),
+                           peltierPID.GetKd()};
+      // depending on what the current menu is, do different things
+      switch(menu.getCurrentIndex()){
+        case 0:// increase the set temp
+          if (setTemp < MAXTEMP)
+            setTemp = setTemp + 1;
+            updateVariables();
+          break;
+        case 3:
+          pidvals[settingpid] += 0.25;
+          peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
+          break;
+        default: // do nothing
+          break;
+      }
+    }
+  
+    else if(bDown.isPressed()){
+      // if the button has been held long enough, increase the scroll speed
+      if((millis() - heldTime) > holdDelay)
+        inputDelay = holdSpeed;
+  
+      double pidvals[3] = {peltierPID.GetKp(),
+                           peltierPID.GetKi(),
+                           peltierPID.GetKd()};
+      // depending on what the current menu is, do different things
+      switch(menu.getCurrentIndex()){
+        case 0:// decrease the set temp
+          if (setTemp > 0)
+            setTemp = setTemp - 1;
+            updateVariables();
+          break;
+        case 3:
+          pidvals[settingpid] -= 0.25;
+          peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
+          break;
+        default:// do nothing
+          break;
+      }
+    }
+    lastDebounceTime = millis();
+  }
+
   // every cycle record sensor temperature reading to later be averaged
   chuckTemps = chuckTemps + Thermistor(analogRead(ChuckThermPIN), chuckPad);
   hSinkTemps = hSinkTemps + Thermistor(analogRead(HSinkThermPIN), hSinkPad);
   numTemps = numTemps + 1;
-  
+
   // update the PID controller function
   peltierPID.Compute();
-  
-  // update the LCD and variables 
+
+  // update the LCD and variables
   if ((millis() - lastUpdate > refreshRate)){
     updateVariables();
     //logData(setTemp * 10, avgChuckTemp * 10, avghSinkTemp * 10);
     // for logging data using computer (debugging)
-    
+
     // check for overheat
     overheating = abs(avgChuckTemp - avghSinkTemp) >= MAXTEMP;
     if(overheating)
-      coolDownLoop();       
+      coolDownLoop();
     else
-      analogWrite(Peltier, peltierDuty); 
+      analogWrite(Peltier, peltierDuty);
   }
 }
 
 void coolDownLoop(){
   // puts program into cooldown loop to avoid peltier cooler overheating
   analogWrite(Peltier, 0);// turn peltier cooler off
-  menu.select(3); // select overheating screen
+  // post a warning to the LCD
+  lcd.clear();
+  //         012345678901234567890123
+  lcd.print("**PELTIER OVERHEATING!**");
+
   while(abs(avgChuckTemp - avghSinkTemp) > (MAXTEMP - 10)){
     // wait for temperature difference to fall by 10deg C
     chuckTemps = chuckTemps + Thermistor(analogRead(ChuckThermPIN), chuckPad);
     hSinkTemps = hSinkTemps + Thermistor(analogRead(HSinkThermPIN), hSinkPad);
-    numTemps = numTemps + 1;  
+    numTemps = numTemps + 1;
     if ((millis() - lastUpdate > refreshRate)){ // update variables
       updateVariables();
-    } 
+    }
   }
-
   overheating = false;
-  menu.select(0);
+  // reset the menu screen
+  menu.select(menu.getCurrentIndex());
 }
 
 void updateVariables(){
@@ -307,54 +289,60 @@ void updateVariables(){
   hSinkTemps = 0;
   numTemps = 0;
 
-  // update the screen based on what screen the user is currently viewing 
-  if (menu.getCurrentIndex() == 0){ // set temp screen
-    lcd.setCursor(3, 1); 
+  if(overheating){
+    lcd.setCursor(3, 1);
     lcd.print(avgChuckTemp,1);
     lcd.print((char)223);
     lcd.print("C  ");
-    
+
     lcd.setCursor(16, 1);
-    lcd.print(setTemp,0);
-    lcd.print((char)223);
-    lcd.print("C  ");       
-  }
-  else if (menu.getCurrentIndex() == 1){ // heatsink temp screen
-    lcd.setCursor(9, 1); 
     lcd.print(avghSinkTemp,1);
     lcd.print((char)223);
     lcd.print("C  ");
+
+    return;
   }
-  else if (menu.getCurrentIndex() == 2){ // peltier cooler duty screen
-    lcd.setCursor(9, 1); 
-    lcd.print(peltierDuty * (100.0/255.0));
-    lcd.print((char)37);
-    lcd.print("  "); 
-  }
-  else if (menu.getCurrentIndex() == 3){ // overheating screen
-    lcd.setCursor(3, 1); 
-    lcd.print(avgChuckTemp,1);
-    lcd.print((char)223);
-    lcd.print("C  ");
-    
-    lcd.setCursor(16, 1); 
-    lcd.print(avghSinkTemp,1);
-    lcd.print((char)223);
-    lcd.print("C  ");      
-  }     
-  else if(menu.getCurrentIndex() == 4){
-    lcd.setCursor(0, 1);
-    int i;
-    char pidchars[3] = {'p', 'i', 'd'};
-    double pidvals[3] = {peltierPID.GetKp(),
-                         peltierPID.GetKi(),
-                         peltierPID.GetKd()};
-    for(i = 0; i < 3; i++){
-      // print out each loop control variable's value
-      lcd.print(settingpid == i ? '*' : ' '); // * means selected
-      lcd.print(pidchars[i]);
-      lcd.print(pidvals[i]);
-    }
+
+  char pidchars[3] = {'p', 'i', 'd'};
+  double pidvals[3] = {peltierPID.GetKp(),
+                       peltierPID.GetKi(),
+                       peltierPID.GetKd()};
+  // update the screen based on what screen the user is currently viewing
+  switch(menu.getCurrentIndex()){
+    case 1: // heatsink temp screen
+      lcd.setCursor(9, 1);
+      lcd.print(avghSinkTemp,1);
+      lcd.print((char)223);
+      lcd.print("C  ");
+      break;
+    case 2: // peltier cooler duty screen
+      lcd.setCursor(9, 1);
+      lcd.print(peltierDuty * (100.0/255.0));
+      lcd.print((char)37);
+      lcd.print("  ");
+      break;
+    case 3:
+      lcd.setCursor(0, 1);
+      int i;
+      for(i = 0; i < 3; i++){
+        // print out each loop control variable's value
+        lcd.print(settingpid == i ? '*' : ' '); // * means selected
+        lcd.print(pidchars[i]);
+        lcd.print(pidvals[i]);
+      }
+      break;
+    default:
+    case 0: // set temp screen
+      lcd.setCursor(3, 1);
+      lcd.print(avgChuckTemp,1);
+      lcd.print((char)223);
+      lcd.print("C  ");
+
+      lcd.setCursor(16, 1);
+      lcd.print(setTemp,0);
+      lcd.print((char)223);
+      lcd.print("C  ");
+      break;
   }
 
   lastUpdate = millis();
@@ -363,30 +351,18 @@ void updateVariables(){
 // when user changes to a new menu, this function is called
 void menuChanged(ItemChangeEvent event){
   // change the screen and update the new values to the new screen
+  lcd.clear();
   if( event == &menuSetTemp ){
-    lcd.clear();
     //         012345678901234567890123
     lcd.print("  Cur Temp    Set Temp  ");
-    updateVariables();
   }else if( event == &menuHeatSink){
-    lcd.clear();
     //         012345678901234567890123
     lcd.print("     Heat Sink Temp     ");
-    updateVariables();
   }else if( event == &menuPeltierDuty ){
-    lcd.clear();
     //         012345678901234567890123
     lcd.print("  Peltier Cooler Duty   ");
-    updateVariables();
-   }else if(event == &menusetpid){
-      lcd.clear();
-      updateVariables();
-  }else if ( event == &overheat ){
-    lcd.clear();
-    //         012345678901234567890123
-    lcd.print("**PELTIER OVERHEATING!**");    
-    updateVariables();  
   }
+  updateVariables();
 }
 
 void menuUsed(ItemUseEvent event){
