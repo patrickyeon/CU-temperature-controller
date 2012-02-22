@@ -22,6 +22,8 @@ peltier cooler.
 #define HSinkThermPIN 5
 // Output control line for the peltier device (must be a digital PWM pin)
 #define Peltier 10
+#define PeltierDir 13
+#define PeltierEn 1
 #define MAXTEMP 70
 
 //LCD [LiquidCrystal(rs, enable, d4, d5, d6, d7)]
@@ -75,7 +77,7 @@ int numTemps = 1; // counter for number of temperature values added up so far,
 double setTemp = 25; // the desired chuck temperature set by the user
 
 //PELTIER COOLER SETUP
-double peltierDuty = 0; // sets duty cycle of peltier cooler (0-255)
+double peltierDuty = 0; // sets duty cycle of peltier cooler (-255 to 255)
 PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 600, 24, 3750, REVERSE);
 // (input, output, target, Kp, Ki, Kd, direction)
 double lastPeltierUpdate = 0;
@@ -113,10 +115,12 @@ void setup(){
   // initialize PID library
   peltierPID.SetMode(AUTOMATIC); // PID control is automatic
   peltierPID.SetSampleTime(200);
+  peltierPID.SetOutputLimits(-255, 255);
   // refresh the PID controller a maximum of once every 200mS
   // (normally will be only calling it every 300mS (refreshRate), so this
   // setting doesn't matter much)
 
+  digitalWrite(PeltierEn, HIGH);
   //Serial.println("#S|CPTEST|[]#");// for debugging using computer
 }
 
@@ -251,14 +255,17 @@ void loop(){
     overheating = abs(avgChuckTemp - avghSinkTemp) >= MAXTEMP;
     if(overheating)
       coolDownLoop();
-    else
+    else{
+      digitalWrite(PeltierDir, peltierDuty > 0 ? LOW : HIGH);
       analogWrite(Peltier, peltierDuty);
+    }
   }
 }
 
 void coolDownLoop(){
   // puts program into cooldown loop to avoid peltier cooler overheating
   analogWrite(Peltier, 0);// turn peltier cooler off
+  digitalWrite(PeltierEn, LOW);
   // post a warning to the LCD
   lcd.clear();
   //         012345678901234567890123
@@ -274,6 +281,7 @@ void coolDownLoop(){
     }
   }
   overheating = false;
+  digitalWrite(PeltierEn, HIGH);
   // reset the menu screen
   menu.select(menu.getCurrentIndex());
 }
