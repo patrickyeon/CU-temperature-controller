@@ -162,17 +162,13 @@ void loop(){
       heldTime = millis();
     }
 
-    // right button press
+    // right button press used to power down the peltier device for
+    // noise-sensitive measurements
     if(bRight.isPressed()){
-      // move menus right or loop back to the beginning of the menus
-      if(menu.getCurrentIndex() == maxMenuItem)
-        menu.select(0);
-      else
-        menu.up();
-      // wraparound
+      measurementLoop(15);
     }
   
-    // left button press
+    // left button press used to cycle through menus
     else if(bLeft.isPressed()){
       // special control for PID loop tuning
       if(debugmode && menu.getCurrentIndex() == 3){
@@ -249,22 +245,29 @@ void loop(){
   hSinkTemps = hSinkTemps + Thermistor(analogRead(HSinkThermPIN), hSinkPad);
   numTemps = numTemps + 1;
 
-  // update the PID controller function
-  peltierPID.Compute();
-
+  
   // update the LCD and variables
   if ((millis() - lastUpdate > refreshRate)){
     updateVariables();
     //logData(setTemp * 10, avgChuckTemp * 10, avghSinkTemp * 10);
     // for logging data using computer (debugging)
+    
+    // update the PID controller function
+    peltierPID.Compute();
 
     // check for overheat
     overheating = abs(avgChuckTemp - avghSinkTemp) >= MAXTEMP;
     if(overheating)
       coolDownLoop();
     else{
-      digitalWrite(PeltierDir, peltierDuty > 0 ? LOW : HIGH);
-      analogWrite(Peltier, peltierDuty);
+      if(peltierDuty > 0){
+        digitalWrite(PeltierDir, LOW);
+        analogWrite(Peltier, peltierDuty);
+      }
+      else{
+        digitalWrite(PeltierDir, HIGH);
+        analogWrite(Peltier, peltierDuty + 255);
+      }
     }
   }
 }
@@ -290,6 +293,38 @@ void coolDownLoop(){
   overheating = false;
   digitalWrite(PeltierEn, HIGH);
   // reset the menu screen
+  menu.select(menu.getCurrentIndex());
+}
+
+void measurementLoop(int secs){
+  // Maximum measurement time: 99 seconds
+  // Mostly for ease of implementation, but temperature will drift alot in that time already
+  if(secs > 99)
+    secs = 99;
+  if(secs < 0)
+    return;
+  digitalWrite(PeltierEn, LOW);
+  lcd.clear();
+  //         012345678901234567890123
+  lcd.print("      Peltier  off      ");
+  lcd.setCursor(0, 1);
+  //         012345678901234567890123
+  lcd.print("Temp: XX.X*C  On in: XXs");
+
+  for(; secs > 0; secs--){
+    float chuckTemp = Thermistor(analogRead(ChuckThermPIN), chuckPad);
+    lcd.setCursor(6, 1);
+    lcd.print(chuckTemp, 1);
+    lcd.print((char)223);
+    lcd.print("C ");
+    
+    lcd.setCursor(21, 1);
+    if(secs < 10)
+      lcd.print(" ");
+    lcd.print(secs, 10);
+    delay(1000);
+  }
+  digitalWrite(PeltierEn, HIGH);
   menu.select(menu.getCurrentIndex());
 }
 
