@@ -88,7 +88,7 @@ boolean debugmode = false; // Used for tuning the PID loop
 
 void setup(){
   // Initialize the board
-  Serial.begin(115200); // setup serial data baud rate
+  //Serial.begin(115200); // setup serial data baud rate
 
   // initialize temperature readings
   chuckTemps = Thermistor(analogRead(ChuckThermPIN), chuckPad);
@@ -120,7 +120,11 @@ void setup(){
   // refresh the PID controller a maximum of once every 200mS
   // (normally will be only calling it every 300mS (refreshRate), so this
   // setting doesn't matter much)
-
+  
+  pinMode(PeltierEn, OUTPUT);
+  pinMode(PeltierDir, OUTPUT);
+  pinMode(Peltier, OUTPUT);
+  
   digitalWrite(PeltierEn, HIGH);
   //Serial.println("#S|CPTEST|[]#");// for debugging using computer
 }
