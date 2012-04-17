@@ -22,6 +22,8 @@ peltier cooler.
 #define HSinkThermPIN 5
 // Output control line for the peltier device (must be a digital PWM pin)
 #define Peltier 10
+#define PeltierDir 13
+#define PeltierEn 1
 #define MAXTEMP 70
 
 //LCD [LiquidCrystal(rs, enable, d4, d5, d6, d7)]
@@ -75,8 +77,8 @@ int numTemps = 1; // counter for number of temperature values added up so far,
 double setTemp = 25; // the desired chuck temperature set by the user
 
 //PELTIER COOLER SETUP
-double peltierDuty = 0; // sets duty cycle of peltier cooler (0-255)
-PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 600, 24, 3750, REVERSE);
+double peltierDuty = 0; // sets duty cycle of peltier cooler (-255 to 255)
+PID peltierPID(&avgChuckTemp, &peltierDuty, &setTemp, 400, 4, 0, REVERSE
 // (input, output, target, Kp, Ki, Kd, direction)
 double lastPeltierUpdate = 0;
 
@@ -86,7 +88,7 @@ boolean debugmode = false; // Used for tuning the PID loop
 
 void setup(){
   // Initialize the board
-  Serial.begin(115200); // setup serial data baud rate
+  //Serial.begin(115200); // setup serial data baud rate
 
   // initialize temperature readings
   chuckTemps = Thermistor(analogRead(ChuckThermPIN), chuckPad);
@@ -101,10 +103,11 @@ void setup(){
   menu.addMenuItem(menuHeatSink);
   menu.addMenuItem(menuPeltierDuty);
   // Allow debug mode if the right button is held down during boot up
-  if(bRight.isPressed()){
+  if(bLeft.isPressed()){
     debugmode = true;
     menu.addMenuItem(menusetpid);
     maxMenuItem += 1;
+    peltierPID.SetTunings(300, 0, 0);
   }
   menu.select(0); // select the menu that is shown initially
 
@@ -113,10 +116,16 @@ void setup(){
   // initialize PID library
   peltierPID.SetMode(AUTOMATIC); // PID control is automatic
   peltierPID.SetSampleTime(200);
+  peltierPID.SetOutputLimits(-255, 255);
   // refresh the PID controller a maximum of once every 200mS
   // (normally will be only calling it every 300mS (refreshRate), so this
   // setting doesn't matter much)
-
+  
+  pinMode(PeltierEn, OUTPUT);
+  pinMode(PeltierDir, OUTPUT);
+  pinMode(Peltier, OUTPUT);
+  
+  digitalWrite(PeltierEn, HIGH);
   //Serial.println("#S|CPTEST|[]#");// for debugging using computer
 }
 
@@ -153,24 +162,20 @@ void loop(){
       heldTime = millis();
     }
 
-    // right button press
+    // right button press used to power down the peltier device for
+    // noise-sensitive measurements
     if(bRight.isPressed()){
-      // move menus right or loop back to the beginning of the menus
-      if(menu.getCurrentIndex() == maxMenuItem)
-        menu.select(0);
-      else
-        menu.up();
-      // wraparound
+      measurementLoop(15);
     }
   
-    // left button press
+    // left button press used to cycle through menus
     else if(bLeft.isPressed()){
       // special control for PID loop tuning
       if(debugmode && menu.getCurrentIndex() == 3){
-        settingpid--;
-        if(settingpid < 0 || settingpid > 2){
-          // extra check just in case settingpid becomes unsigned
-          settingpid = 2;
+        settingpid++;
+        if(settingpid > 2){
+          settingpid = 0;
+          menu.down();
         }
       }
       // move menus left or loop back to the end of the menus
@@ -191,6 +196,7 @@ void loop(){
       double pidvals[3] = {peltierPID.GetKp(),
                            peltierPID.GetKi(),
                            peltierPID.GetKd()};
+      double pidincs[3] = {5, 0.25, 5};
       // depending on what the current menu is, do different things
       switch(menu.getCurrentIndex()){
         case 0:// increase the set temp
@@ -199,7 +205,7 @@ void loop(){
             updateVariables();
           break;
         case 3:
-          pidvals[settingpid] += 0.25;
+          pidvals[settingpid] += pidincs[settingpid];
           peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
           break;
         default: // do nothing
@@ -215,6 +221,7 @@ void loop(){
       double pidvals[3] = {peltierPID.GetKp(),
                            peltierPID.GetKi(),
                            peltierPID.GetKd()};
+      double pidincs[3] = {5, 0.25, 5};
       // depending on what the current menu is, do different things
       switch(menu.getCurrentIndex()){
         case 0:// decrease the set temp
@@ -223,7 +230,7 @@ void loop(){
             updateVariables();
           break;
         case 3:
-          pidvals[settingpid] -= 0.25;
+          pidvals[settingpid] -= pidincs[settingpid];
           peltierPID.SetTunings(pidvals[0], pidvals[1], pidvals[2]);
           break;
         default:// do nothing
@@ -238,27 +245,37 @@ void loop(){
   hSinkTemps = hSinkTemps + Thermistor(analogRead(HSinkThermPIN), hSinkPad);
   numTemps = numTemps + 1;
 
-  // update the PID controller function
-  peltierPID.Compute();
-
+  
   // update the LCD and variables
   if ((millis() - lastUpdate > refreshRate)){
     updateVariables();
     //logData(setTemp * 10, avgChuckTemp * 10, avghSinkTemp * 10);
     // for logging data using computer (debugging)
+    
+    // update the PID controller function
+    peltierPID.Compute();
 
     // check for overheat
     overheating = abs(avgChuckTemp - avghSinkTemp) >= MAXTEMP;
     if(overheating)
       coolDownLoop();
-    else
-      analogWrite(Peltier, peltierDuty);
+    else{
+      if(peltierDuty > 0){
+        digitalWrite(PeltierDir, LOW);
+        analogWrite(Peltier, peltierDuty);
+      }
+      else{
+        digitalWrite(PeltierDir, HIGH);
+        analogWrite(Peltier, peltierDuty + 255);
+      }
+    }
   }
 }
 
 void coolDownLoop(){
   // puts program into cooldown loop to avoid peltier cooler overheating
   analogWrite(Peltier, 0);// turn peltier cooler off
+  digitalWrite(PeltierEn, LOW);
   // post a warning to the LCD
   lcd.clear();
   //         012345678901234567890123
@@ -274,7 +291,40 @@ void coolDownLoop(){
     }
   }
   overheating = false;
+  digitalWrite(PeltierEn, HIGH);
   // reset the menu screen
+  menu.select(menu.getCurrentIndex());
+}
+
+void measurementLoop(int secs){
+  // Maximum measurement time: 99 seconds
+  // Mostly for ease of implementation, but temperature will drift alot in that time already
+  if(secs > 99)
+    secs = 99;
+  if(secs < 0)
+    return;
+  digitalWrite(PeltierEn, LOW);
+  lcd.clear();
+  //         012345678901234567890123
+  lcd.print("      Peltier  off      ");
+  lcd.setCursor(0, 1);
+  //         012345678901234567890123
+  lcd.print("Temp: XX.X*C  On in: XXs");
+
+  for(; secs > 0; secs--){
+    float chuckTemp = Thermistor(analogRead(ChuckThermPIN), chuckPad);
+    lcd.setCursor(6, 1);
+    lcd.print(chuckTemp, 1);
+    lcd.print((char)223);
+    lcd.print("C ");
+    
+    lcd.setCursor(21, 1);
+    if(secs < 10)
+      lcd.print(" ");
+    lcd.print(secs, 10);
+    delay(1000);
+  }
+  digitalWrite(PeltierEn, HIGH);
   menu.select(menu.getCurrentIndex());
 }
 
