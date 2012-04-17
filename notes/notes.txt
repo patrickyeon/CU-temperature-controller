@@ -1,0 +1,5 @@
+Thermistor used is CanTherm MF51E103E3950, B is nominally 3950K, Resistance range is 5K-100K.
+
+Peltier is CPM-2F from CUI. Max input = 12V, 6A. Max delta T = 73K.
+
+The circuit isn't any more than at Atmega32 with appropriate support circuitry.
